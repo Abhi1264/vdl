@@ -1,4 +1,4 @@
-module github.com/Abhi1264/vdl
+module github.com/Abhi1264/vidforge
 
 go 1.25.5
 

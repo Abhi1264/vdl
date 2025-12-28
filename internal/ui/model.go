@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/Abhi1264/vdl/internal/downloader"
+	"github.com/Abhi1264/vidforge/internal/downloader"
 	"github.com/charmbracelet/bubbles/textinput"
 )
 

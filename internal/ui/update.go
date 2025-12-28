@@ -2,7 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"github.com/Abhi1264/vdl/internal/downloader"
+	"github.com/Abhi1264/vidforge/internal/downloader"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

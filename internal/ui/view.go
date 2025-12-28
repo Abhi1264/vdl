@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Abhi1264/vdl/internal/downloader"
+	"github.com/Abhi1264/vidforge/internal/downloader"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -49,7 +49,7 @@ func renderBar(p float64) string {
 func (m Model) View() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("VDL — Universal Video Downloader\n\n"))
+	b.WriteString(titleStyle.Render("VidForge — Universal Video Downloader\n\n"))
 
 	if m.showHelp {
 		b.WriteString(helpStyle.Render(helpText))

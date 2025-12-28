@@ -1,14 +1,47 @@
-project_name: vdl
+version: 2
+
+project_name: vidforge
+
+before:
+  hooks:
+    - go mod tidy
 
 builds:
-  - main: ./cmd/vdl
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
+  - id: vidforge
+    main: ./cmd/vidforge
+    binary: vidforge
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
 
 brews:
-  - name: vdl
-    tap:
-      owner: Abhinav Kumar Choudhary
-      name: homebrew-tap
-    homepage: https://github.com/Abhi1264/vdl
+  - name: vidforge
+    homepage: https://github.com/Abhi1264/vidforge
     description: Terminal-based universal video downloader
+    license: MIT
+
+    repository:
+      owner: Abhi1264
+      name: homebrew-tap
+
+    install: |
+      bin.install "vidforge"
+
+    test: |
+      system "#{bin}/vidforge", "--help"

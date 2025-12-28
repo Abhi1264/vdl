@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/Abhi1264/vdl/internal/bootstrap"
-	"github.com/Abhi1264/vdl/internal/ui"
-	tea "github.com/charmbracelet/bubbletea"
 	"log"
+
+	"github.com/Abhi1264/vidforge/internal/bootstrap"
+	"github.com/Abhi1264/vidforge/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func init() {
@@ -18,7 +19,7 @@ func init() {
 
 func main() {
 	p := tea.NewProgram(ui.NewModel(), tea.WithAltScreen())
-	if err := p.Start(); err != nil {
+	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
