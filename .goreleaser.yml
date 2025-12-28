@@ -1,0 +1,14 @@
+project_name: vdl
+
+builds:
+  - main: ./cmd/vdl
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+brews:
+  - name: vdl
+    tap:
+      owner: Abhinav Kumar Choudhary
+      name: homebrew-tap
+    homepage: https://github.com/Abhi1264/vdl
+    description: Terminal-based universal video downloader
