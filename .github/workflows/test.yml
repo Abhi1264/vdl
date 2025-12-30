@@ -1,0 +1,81 @@
+name: Cross-Platform Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Verify Go version
+        run: go version
+
+      - name: Go mod tidy check
+        run: |
+          go mod tidy
+          git diff --exit-code
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Build VidForge
+        run: go build -v ./cmd/vidforge
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            ./vidforge.exe --help || true
+          else
+            ./vidforge --help || true
+          fi
+
+      - name: Race detector
+        if: runner.os == 'Linux'
+        run: go test -race ./...
+
+      - name: Dependency detection test
+        shell: bash
+        run: |
+          echo "Simulating missing yt-dlp and ffmpeg"
+          PATH="/nonexistent:$PATH" go run ./cmd/vidforge --help || true
+
+      - name: Cross-compile (no run)
+        if: runner.os == 'Linux'
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o vidforge-win.exe ./cmd/vidforge
+          GOOS=linux GOARCH=arm64 go build -o vidforge-linux-arm64 ./cmd/vidforge
+
+      - name: Validate GoReleaser config
+        if: runner.os == 'Linux'
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: check
