@@ -2,6 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/Abhi1264/vidforge/internal/config"
 	"github.com/Abhi1264/vidforge/internal/downloader"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -23,23 +27,72 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-
-	m.input, cmd = m.input.Update(msg)
+	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-
 	case tea.KeyMsg:
-		switch msg.String() {
+		key := msg.String()
+
+		specialKeys := map[string]bool{
+			"ctrl+c": true,
+			"q":      true,
+			"p":      true,
+			"up":     true,
+			"k":      true,
+			"down":   true,
+			"j":      true,
+			"?":      true,
+			"enter":  true,
+		}
+
+		if m.showDownloadPath {
+			specialKeys["d"] = true
+		} else if !m.showHelp && !m.showProfiles {
+			specialKeys["s"] = true
+			specialKeys["f"] = true
+			specialKeys["d"] = true
+			specialKeys["1"] = true
+			specialKeys["2"] = true
+			specialKeys["3"] = true
+			specialKeys["4"] = true
+			specialKeys["5"] = true
+			specialKeys["6"] = true
+		} else if m.showProfiles {
+			specialKeys["f"] = true
+			specialKeys["1"] = true
+			specialKeys["2"] = true
+			specialKeys["3"] = true
+			specialKeys["4"] = true
+			specialKeys["5"] = true
+			specialKeys["6"] = true
+		}
+
+		if !specialKeys[key] {
+			if m.showDownloadPath {
+				m.downloadPathInput, cmd = m.downloadPathInput.Update(msg)
+				cmds = append(cmds, cmd)
+			} else {
+				m.input, cmd = m.input.Update(msg)
+				cmds = append(cmds, cmd)
+			}
+		}
+
+		switch key {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
 		case "p":
-			if job := m.selectedJob(); job != nil {
-				m.manager.Cancel(m.selectedID)
-				job.status = "cancelled"
-				job.done = true
+			if !m.showDownloadPath {
+				if job := m.selectedJob(); job != nil {
+					m.manager.Cancel(m.selectedID)
+					job.status = "cancelled"
+					job.done = true
+				}
 			}
 		case "up", "k":
+			if m.showDownloadPath {
+				return m, tea.Batch(cmds...)
+			}
 			if m.showProfiles {
 				profiles := downloader.GetProfiles()
 				if len(profiles) > 0 {
@@ -63,6 +116,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "down", "j":
+			if m.showDownloadPath {
+				return m, tea.Batch(cmds...)
+			}
 			if m.showProfiles {
 				profiles := downloader.GetProfiles()
 				if len(profiles) > 0 {
@@ -89,15 +145,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showHelp = !m.showHelp
 			if m.showHelp {
 				m.showProfiles = false
+				m.showDownloadPath = false
 			}
 		case "s":
-			m.sponsorBlock = !m.sponsorBlock
-		case "f":
-			m.showProfiles = !m.showProfiles
-			if m.showProfiles {
-				m.showHelp = false
+			if !m.showDownloadPath {
+				m.sponsorBlock = !m.sponsorBlock
 			}
+		case "f":
+			if !m.showDownloadPath {
+				m.showProfiles = !m.showProfiles
+				if m.showProfiles {
+					m.showHelp = false
+				}
+			}
+		case "d":
+			if m.showDownloadPath {
+				m.showDownloadPath = false
+				m.downloadPathInput.Blur()
+				m.input.Focus()
+			} else if !m.showHelp && !m.showProfiles {
+				m.showDownloadPath = true
+				m.input.Blur()
+				m.downloadPathInput.Focus()
+				m.downloadPathInput.SetValue(m.downloadPath)
+			}
+			return m, tea.Batch(cmds...)
 		case "1", "2", "3", "4", "5", "6":
+			if m.showDownloadPath {
+				return m, tea.Batch(cmds...)
+			}
 			if m.showProfiles {
 				idx := int(msg.String()[0] - '1')
 				profiles := downloader.GetProfiles()
@@ -111,7 +187,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.showHelp {
-				return m, cmd
+				return m, tea.Batch(cmds...)
+			}
+			if m.showDownloadPath {
+				newPath := m.downloadPathInput.Value()
+				if newPath != "" {
+					// Expand ~ if present
+					if len(newPath) > 0 && newPath[0] == '~' {
+						homeDir, err := os.UserHomeDir()
+						if err == nil {
+							newPath = filepath.Join(homeDir, newPath[1:])
+						}
+					}
+					m.downloadPath = newPath
+					cfg := config.GetConfig()
+					cfg.SetDownloadPath(newPath)
+				}
+				m.showDownloadPath = false
+				m.downloadPathInput.Blur()
+				m.input.Focus()
+				return m, tea.Batch(cmds...)
 			}
 			if m.showProfiles {
 				profiles := downloader.GetProfiles()
@@ -119,11 +214,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.profile = &profiles[m.profileIndex]
 					m.showProfiles = false
 				}
-				return m, cmd
+				return m, tea.Batch(cmds...)
 			}
 			url := m.input.Value()
 			if url == "" {
-				return m, cmd
+				return m, tea.Batch(cmds...)
 			}
 
 			id := m.nextID
@@ -147,6 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Profile:      m.profile,
 				SponsorBlock: sponsorBlock,
 				Resume:       true,
+				OutputPath:   m.downloadPath,
 			})
 
 			m.input.Reset()
@@ -171,5 +267,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, listen(m.progressCh)
 	}
 
-	return m, tea.Batch(cmd, listen(m.progressCh))
+	cmds = append(cmds, listen(m.progressCh))
+	return m, tea.Batch(cmds...)
 }

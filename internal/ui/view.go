@@ -61,6 +61,10 @@ func (m Model) View() string {
 		return m.renderProfiles()
 	}
 
+	if m.showDownloadPath {
+		return m.renderDownloadPath()
+	}
+
 	b.WriteString("URL:\n")
 	b.WriteString(m.input.View() + "\n\n")
 
@@ -79,6 +83,10 @@ func (m Model) View() string {
 		sponsorText += statusStyle.Render("OFF")
 	}
 	b.WriteString(sponsorText)
+	b.WriteString("\n\n")
+
+	downloadPathText := fmt.Sprintf("Download Location: %s", m.downloadPath)
+	b.WriteString(profileStyle.Render(downloadPathText))
 	b.WriteString("\n\n")
 
 	if len(m.jobs) > 0 {
@@ -131,7 +139,7 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("\n[Enter] download  [↑↓] select  [p] pause/cancel  [s] SponsorBlock  [f] profile  [?] help  [q] quit\n")
+	b.WriteString("\n[Enter] download  [↑↓] select  [p] pause/cancel  [s] SponsorBlock  [f] profile  [d] download location  [?] help  [q] quit\n")
 	return b.String()
 }
 
@@ -153,5 +161,16 @@ func (m Model) renderProfiles() string {
 	}
 
 	b.WriteString("\n[1-6] select  [↑↓] navigate  [Enter] confirm  [f] back  [q] quit\n")
+	return b.String()
+}
+
+func (m Model) renderDownloadPath() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render("Set Download Location\n\n"))
+	b.WriteString("Enter the path where downloads should be saved:\n")
+	b.WriteString(m.downloadPathInput.View() + "\n\n")
+	b.WriteString(profileStyle.Render(fmt.Sprintf("Current: %s", m.downloadPath)))
+	b.WriteString("\n\n")
+	b.WriteString("\n[Enter] save  [d] back  [q] quit\n")
 	return b.String()
 }

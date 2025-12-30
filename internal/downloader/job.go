@@ -3,7 +3,9 @@ package downloader
 import (
 	"bufio"
 	"context"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 )
@@ -23,6 +25,7 @@ type Job struct {
 	Profile      *Profile
 	SponsorBlock bool
 	Resume       bool
+	OutputPath   string
 }
 
 func (j Job) Run(ctx context.Context, out chan<- Progress) {
@@ -44,6 +47,16 @@ func (j Job) Run(ctx context.Context, out chan<- Progress) {
 		args = append(args,
 			"--sponsorblock-remove", "sponsor,selfpromo,interaction,intro,outro",
 		)
+	}
+
+	if j.OutputPath != "" {
+		if err := os.MkdirAll(j.OutputPath, 0755); err != nil {
+			out <- Progress{ID: j.ID, Err: err}
+			return
+		}
+		outputTemplate := "%(title)s.%(ext)s"
+		outputPath := filepath.Join(j.OutputPath, outputTemplate)
+		args = append(args, "-o", outputPath)
 	}
 
 	args = append(args, j.URL)

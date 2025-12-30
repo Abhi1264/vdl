@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/Abhi1264/vidforge/internal/config"
 	"github.com/Abhi1264/vidforge/internal/downloader"
 	"github.com/charmbracelet/bubbles/textinput"
 )
@@ -13,17 +14,20 @@ type jobState struct {
 }
 
 type Model struct {
-	input        textinput.Model
-	jobs         map[int]*jobState
-	nextID       int
-	selectedID   int
-	manager      *downloader.Manager
-	progressCh   <-chan downloader.Progress
-	showHelp     bool
-	showProfiles bool
-	profileIndex int
-	profile      *downloader.Profile
-	sponsorBlock bool
+	input             textinput.Model
+	downloadPathInput textinput.Model
+	jobs              map[int]*jobState
+	nextID            int
+	selectedID        int
+	manager           *downloader.Manager
+	progressCh        <-chan downloader.Progress
+	showHelp          bool
+	showProfiles      bool
+	showDownloadPath  bool
+	profileIndex      int
+	profile           *downloader.Profile
+	sponsorBlock      bool
+	downloadPath      string
 }
 
 func NewModel() Model {
@@ -32,6 +36,11 @@ func NewModel() Model {
 	ti.Focus()
 	ti.CharLimit = 2048
 	ti.Width = 60
+
+	pathInput := textinput.New()
+	pathInput.Placeholder = "/path/to/downloads"
+	pathInput.CharLimit = 512
+	pathInput.Width = 60
 
 	mgr := downloader.NewManager(3)
 	profiles := downloader.GetProfiles()
@@ -44,14 +53,19 @@ func NewModel() Model {
 		}
 	}
 
+	cfg := config.GetConfig()
+	downloadPath := cfg.GetDownloadPath()
+
 	return Model{
-		input:        ti,
-		jobs:         make(map[int]*jobState),
-		manager:      mgr,
-		progressCh:   mgr.Updates(),
-		profile:      defaultProfile,
-		profileIndex: profileIndex,
-		sponsorBlock: true,
+		input:             ti,
+		downloadPathInput: pathInput,
+		jobs:              make(map[int]*jobState),
+		manager:           mgr,
+		progressCh:        mgr.Updates(),
+		profile:           defaultProfile,
+		profileIndex:      profileIndex,
+		sponsorBlock:      true,
+		downloadPath:      downloadPath,
 	}
 }
 
