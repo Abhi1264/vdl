@@ -11,11 +11,11 @@ VidForge is a terminal-based video downloader application written in Go that pro
 
 - 🎬 **Universal Video Downloading**: Supports all platforms that `yt-dlp` supports (YouTube, Vimeo, Twitter, TikTok, and 1000+ more)
 - 🎨 **Beautiful TUI**: Modern terminal interface built with Bubbletea
-- 📊 **Concurrent Downloads**: Download multiple videos simultaneously (up to 3 concurrent jobs)
+- 📊 **Concurrent Downloads**: Download multiple videos simultaneously (up to 10 concurrent jobs)
 - 🎚️ **Quality Profiles**: Pre-configured profiles for different use cases (Best Quality, High Quality, Balanced, Mobile Saver, Audio Only, Archive)
 - 🚫 **SponsorBlock Integration**: Automatically removes sponsor segments from YouTube videos
 - 🔄 **Resume Support**: Automatically resumes interrupted downloads
-- 🔧 **Auto-Dependency Management**: Automatically installs `yt-dlp` and `ffmpeg` if not present
+- 📦 **Self-Contained**: Includes embedded `yt-dlp` and `ffmpeg` binaries - no external dependencies required
 - 🖥️ **Cross-Platform**: Works on macOS, Linux, and Windows
 
 ## Installation
@@ -26,30 +26,52 @@ VidForge is a terminal-based video downloader application written in Go that pro
 brew install vidforge
 ```
 
+### Download from GitHub Releases
+
+Download the pre-built binary for your platform from the [Releases](https://github.com/Abhi1264/vidforge/releases) page:
+
+- **macOS**: `vidforge_*_darwin_amd64.tar.gz` or `vidforge_*_darwin_arm64.tar.gz`
+- **Linux**: `vidforge_*_linux_amd64.tar.gz` or `vidforge_*_linux_arm64.tar.gz`
+- **Windows**: `vidforge_*_windows_amd64.tar.gz` or `vidforge_*_windows_arm64.tar.gz`
+
+Extract and run:
+```bash
+tar -xzf vidforge_*_linux_amd64.tar.gz
+./vidforge
+```
+
 ### Build from Source
 
 **Prerequisites:**
 - Go 1.25.5 or later
-- Homebrew (macOS), apt-get/dnf/pacman (Linux), or PowerShell (Windows) for automatic dependency installation
+- `curl` or `wget` for downloading embedded binaries
 
 ```bash
 git clone https://github.com/Abhi1264/vidforge.git
 cd vidforge
+
+# Download embedded binaries (required before building)
+bash scripts/download-binaries.sh
+
+# Build the binary
 go build -o vidforge ./cmd/vidforge
 ./vidforge
 ```
 
+**Note**: The `download-binaries.sh` script downloads `yt-dlp` and `ffmpeg` binaries for all platforms, which are then embedded into the Go binary during compilation. This ensures the final binary is self-contained and doesn't require external dependencies.
+
 ### Dependencies
 
-VidForge automatically checks for and installs the following dependencies:
+VidForge includes embedded binaries for `yt-dlp` and `ffmpeg`, so **no external dependencies are required**. The binaries are automatically extracted to a local `bin` directory on first run.
 
-- **yt-dlp**: Video downloader backend
-- **ffmpeg**: Media processing tool
+**How it works:**
+1. On first launch, VidForge checks if `yt-dlp` and `ffmpeg` are available in your system PATH
+2. If not found, it extracts the embedded binaries to `{app_directory}/bin/`
+3. The extracted binaries are used for all download operations
 
-If these are not found, VidForge will attempt to install them:
-- **macOS**: Uses Homebrew (`brew install yt-dlp ffmpeg`)
-- **Linux**: Uses apt-get, dnf, or pacman depending on your distribution
-- **Windows**: Downloads yt-dlp.exe to the application directory (ffmpeg Windows installation not fully implemented)
+**Fallback behavior:**
+- If you have system-installed versions of `yt-dlp` or `ffmpeg` in your PATH, those will be used instead
+- This allows you to use updated versions if you prefer
 
 ## Usage
 
@@ -170,12 +192,13 @@ vidforge/
 
 #### 1. Bootstrap Package (`internal/bootstrap`)
 
-Handles dependency management and OS detection:
+Handles dependency management and binary extraction:
 
-- **`deps.go`**: Ensures `yt-dlp` and `ffmpeg` are installed
-  - Cross-platform installation logic
-  - Package manager detection (Homebrew, apt-get, dnf, pacman)
-  - Automatic download for Windows
+- **`deps.go`**: Manages embedded binaries and extraction
+  - Embeds `yt-dlp` and `ffmpeg` binaries for all platforms
+  - Extracts binaries to local directory on first run
+  - Checks system PATH first, falls back to embedded binaries
+  - Platform-specific binary selection based on OS and architecture
 
 - **`os.go`**: OS and architecture detection utilities
   - `DetectOS()`: Returns current OS and architecture
@@ -246,9 +269,10 @@ Terminal user interface built with Bubbletea:
 ### Data Flow
 
 1. **Initialization**:
-   - `main.go` checks for dependencies via `bootstrap.Ensure()`
+   - `main.go` ensures dependencies are available via `bootstrap.Ensure()`
+   - Extracts embedded binaries if system versions aren't found
    - Creates a new Bubbletea program with `ui.NewModel()`
-   - Initializes download manager with 3 worker goroutines
+   - Initializes download manager with 10 worker goroutines
 
 2. **Download Submission**:
    - User enters URL and presses Enter
@@ -257,7 +281,8 @@ Terminal user interface built with Bubbletea:
    - Manager assigns job to an available worker
 
 3. **Download Execution**:
-   - Worker goroutine executes `yt-dlp` command with appropriate flags
+   - Worker goroutine uses `bootstrap.GetCommandPath()` to locate `yt-dlp`
+   - Executes `yt-dlp` command (from PATH or extracted binary) with appropriate flags
    - Progress is parsed from stdout using regex
    - Progress updates are sent via channel to the UI model
 
@@ -271,7 +296,7 @@ Terminal user interface built with Bubbletea:
 VidForge uses a worker pool pattern for concurrent downloads:
 
 - **Download Manager**: Maintains a channel-based queue of jobs
-- **Worker Goroutines**: 3 workers process jobs concurrently
+- **Worker Goroutines**: 10 workers process jobs concurrently
 - **Progress Channel**: Single channel for all progress updates
 - **Context Cancellation**: Each job has a context for cancellation support
 
@@ -279,7 +304,7 @@ VidForge uses a worker pool pattern for concurrent downloads:
 
 VidForge uses sensible defaults and doesn't require configuration files:
 
-- **Concurrent Downloads**: 3 workers (configurable in `ui/model.go`)
+- **Concurrent Downloads**: 10 workers (configurable in `ui/model.go`)
 - **Default Profile**: Balanced (720p, H.264, MP4)
 - **SponsorBlock**: Enabled by default for YouTube URLs
 - **Resume**: Enabled by default for all downloads
@@ -323,17 +348,18 @@ Edit `internal/downloader/profile.go` and add a new `Profile` to the `profiles` 
 - `github.com/charmbracelet/bubbles`: UI components (textinput)
 - `github.com/charmbracelet/lipgloss`: Terminal styling
 
-External dependencies (installed automatically):
-- `yt-dlp`: Video downloader
-- `ffmpeg`: Media processing
+Embedded dependencies (included in binary):
+- `yt-dlp`: Video downloader (embedded for all platforms)
+- `ffmpeg`: Media processing (embedded for all platforms)
+
+These are automatically extracted on first run if not found in system PATH.
 
 ## Limitations
 
-1. **Windows Support**: FFmpeg Windows installation is not fully implemented (downloads yt-dlp.exe only)
-2. **Format Selection**: Currently uses profiles only; manual format selection not available
-3. **Download Location**: Uses yt-dlp default download location (current directory)
-4. **Error Handling**: Basic error display; detailed error recovery may need improvement
-5. **Concurrent Workers**: Fixed at 3 workers (configurable in code)
+1. **Format Selection**: Currently uses profiles only; manual format selection not available
+3. **Error Handling**: Basic error display; detailed error recovery may need improvement
+4. **Concurrent Workers**: Fixed at 10 workers (configurable in code)
+5. **Binary Size**: The final binary is larger (~50-100MB) due to embedded dependencies
 
 ## Future Enhancements
 
@@ -345,10 +371,10 @@ Potential improvements:
 - [ ] Playlist support with queue management
 - [ ] Subtitle selection and management
 - [ ] Config file for user preferences
-- [ ] Windows FFmpeg installation completion
 - [ ] Better error messages and recovery
 - [ ] Download speed indicators
 - [ ] ETA calculation and display
+- [ ] Optional: Use system-installed binaries by default (flag to prefer embedded)
 
 ## License
 

@@ -3,11 +3,14 @@ package downloader
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
+
+	"github.com/Abhi1264/vidforge/internal/bootstrap"
 )
 
 var percentRe = regexp.MustCompile(`(\d{1,3}\.\d)%`)
@@ -61,7 +64,13 @@ func (j Job) Run(ctx context.Context, out chan<- Progress) {
 
 	args = append(args, j.URL)
 
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	ytdlpPath, err := bootstrap.GetCommandPath("yt-dlp")
+	if err != nil {
+		out <- Progress{ID: j.ID, Err: fmt.Errorf("yt-dlp not found: %w", err)}
+		return
+	}
+
+	cmd := exec.CommandContext(ctx, ytdlpPath, args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

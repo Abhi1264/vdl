@@ -5,6 +5,7 @@ project_name: vidforge
 before:
   hooks:
     - go mod tidy
+    - bash scripts/download-binaries.sh
 
 builds:
   - id: vidforge

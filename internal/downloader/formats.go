@@ -2,8 +2,11 @@ package downloader
 
 import (
 	"bufio"
+	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/Abhi1264/vidforge/internal/bootstrap"
 )
 
 type Format struct {
@@ -12,7 +15,12 @@ type Format struct {
 }
 
 func ListFormats(url string) ([]Format, error) {
-	cmd := exec.Command("yt-dlp", "-F", url)
+	ytdlpPath, err := bootstrap.GetCommandPath("yt-dlp")
+	if err != nil {
+		return nil, fmt.Errorf("yt-dlp not found: %w", err)
+	}
+
+	cmd := exec.Command(ytdlpPath, "-F", url)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err

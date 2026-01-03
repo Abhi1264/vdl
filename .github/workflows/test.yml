@@ -48,6 +48,10 @@ jobs:
       - name: Go vet
         run: go vet ./...
 
+      - name: Download embedded binaries
+        run: bash scripts/download-binaries.sh
+        continue-on-error: true
+
       - name: Build VidForge
         run: go build -v ./cmd/vidforge
 
@@ -68,12 +72,15 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          echo "Simulating missing yt-dlp and ffmpeg"
-          PATH="/nonexistent:$PATH" go run ./cmd/vidforge --version
+          echo "Testing embedded binary extraction"
+          bash scripts/download-binaries.sh || true
+          go build -v ./cmd/vidforge
+          PATH="/nonexistent:$PATH" ./vidforge --version
 
       - name: Cross-compile (no run)
         if: runner.os == 'Linux'
         run: |
+          bash scripts/download-binaries.sh || true
           GOOS=windows GOARCH=amd64 go build -o vidforge-win.exe ./cmd/vidforge
           GOOS=linux GOARCH=arm64 go build -o vidforge-linux-arm64 ./cmd/vidforge
 
@@ -82,6 +89,7 @@ jobs:
         shell: powershell
         run: |
           Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          $env:SCOOP_NO_UPDATE_CHECK='1'
           irm get.scoop.sh | iex
 
           scoop --version
@@ -90,4 +98,18 @@ jobs:
 
           scoop install vidforge
 
-          vidforge --version
+          $job = Start-Job -ScriptBlock { vidforge --version 2>&1 }
+          $null = $job | Wait-Job -Timeout 10
+          if ($job.State -eq 'Running') {
+            Stop-Job $job
+            Remove-Job $job -Force
+            Write-Error "vidforge --version timed out after 10 seconds"
+            exit 1
+          }
+          $output = Receive-Job $job
+          Remove-Job $job -Force
+          if ($job.State -eq 'Failed') {
+            Write-Error "vidforge --version failed: $output"
+            exit 1
+          }
+          Write-Output $output
